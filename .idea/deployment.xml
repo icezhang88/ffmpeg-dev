@@ -9,6 +9,7 @@
           </mappings>
           <excludedPaths>
             <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
           </excludedPaths>
         </serverdata>
       </paths>
@@ -59,6 +60,13 @@
         </serverdata>
       </paths>
       <paths name="Remote Host (1) (f65ec533-cff2-48d1-8599-184df82f6cf4)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="Remote Host (2) (521c6160-ecf8-4af0-80ee-e5c95b45f401)">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
@@ -178,6 +186,13 @@
         </serverdata>
       </paths>
       <paths name="WSL (804840cc-82b8-444b-a2aa-ed912d8ec20d)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="WSL (90bc19c4-4353-4c79-ad05-2b46017322dd)">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
