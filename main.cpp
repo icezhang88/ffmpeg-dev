@@ -1,316 +1,422 @@
-#include <iostream>
+#include <stdio.h>
+#include "iostream"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define __STDC_CONSTANT_MACROS
 
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libavfilter/avfilter.h>
-#include <libavdevice/avdevice.h>
-#include <libavutil/mem.h>
-#include "libavutil/opt.h"
-#include "libavutil/time.h"
-#ifdef __cplusplus
-};
-#endif
-
-
-int avError(int errNum);
-
-int httRtmp();
-
-
-using namespace std;
-static double r2d(AVRational r)
+extern "C"
 {
-    return r.num == 0 || r.den == 0 ? 0. : (double)r.num / (double)r.den;
-}
-int main() {
+#include "libavutil/opt.h"
+#include "libavutil/channel_layout.h"
+#include "libavutil/common.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/mathematics.h"
+#include "libavutil/samplefmt.h"
+#include "libavutil/time.h"
+#include "libavutil/fifo.h"
+#include "libavcodec/avcodec.h"
+#include "libavformat/avformat.h"
+#include "libavformat/avio.h"
+//#include "libavfilter/avfiltergraph.h"
+#include "libavfilter/avfilter.h"
+#include "libavfilter/buffersink.h"
+#include "libavfilter/buffersrc.h"
+#include "libswscale/swscale.h"
+#include "libswresample/swresample.h"
+#include "libavdevice/avdevice.h"
+};
 
-    httRtmp();
-    getchar();
-    return 0;
-}
-
-int avError(int errNum) {
-    char buf[1024];
-    //获取错误信息
-    av_strerror(errNum, buf, sizeof(buf));
-    cout << " failed! " << buf << endl;
-    return -1;
-}
+#include <string>
+#include <memory>
+#include <thread>
+#include <iostream>
+using namespace std;
 
 
-//推送本地文件到rtmp服务器
-int httRtmp() {
-    int videoindex = -1;
-    int audioindex = -1;
-    //所有代码执行之前要调用av_register_all和avformat_network_init
-    //初始化所有的封装和解封装 flv mp4 mp3 mov。不包含编码和解码
-    av_register_all();
-
-    //初始化网络库
-    avformat_network_init();
-
-    //使用的相对路径，执行文件在bin目录下。test.mp4放到bin目录下即可
-    const char *inUrl = "../musk.mp4";
-    //const char *inUrl = "rtmp://103.229.149.171/myapp/GoProCut";
-    //const char *inUrl = "http://liveali.ifeng.com/live/CCTV.m3u8?time=1540543965804http://liveali.ifeng.com/live/CCTV.m3u8?time=1540543965804";
-    //输出的地址
-    const char *outUrl = "rtmp://test.bodyta.com:1935/live/pi";
-
-    //
-    //                   输入流处理部分
-    //
-    //打开文件，解封装 avformat_open_input
-    //AVFormatContext **ps  输入封装的上下文。包含所有的格式内容和所有的IO。如果是文件就是文件IO，网络就对应网络IO
-    //const char *url  路径
-    //AVInputFormt * fmt 封装器
-    //AVDictionary ** options 参数设置
-    AVFormatContext *ictx = NULL;
-  
-    AVOutputFormat *ofmt = NULL;
-
-    //打开文件，解封文件头
-    int ret = avformat_open_input(&ictx, inUrl, NULL, NULL);
-    if (ret < 0) {
-        return avError(ret);
-    }
-    cout << "avformat_open_input success!" << endl;
-    //获取音频视频的信息 .h264 flv 没有头信息
-    ret = avformat_find_stream_info(ictx, 0);
-    if (ret != 0) {
-        return avError(ret);
-    }
-    //打印视频视频信息
-    //0打印所有  inUrl 打印时候显示，
-    av_dump_format(ictx, 0, inUrl, 0);
-
-    //
-    //                   输出流处理部分
-    //
-    AVFormatContext * octx = NULL;
-    //如果是输入文件 flv可以不传，可以从文件中判断。如果是流则必须传
-    //创建输出上下文
-    ret = avformat_alloc_output_context2(&octx, NULL, "flv", outUrl);
-    if (ret < 0) {
-        return avError(ret);
-    }
-    cout << "avformat_alloc_output_context2 success!" << endl;
-
-    ofmt = octx->oformat;
-    cout << "nb_streams  " << ictx->nb_streams << endl;
-    int i;
-    //for (i = 0; i < ictx->nb_streams; i++) {
-    //  cout << "i " << i <<"  "<< ictx->nb_streams<< endl;
-    //  AVStream *in_stream = ictx->streams[i];
-    //  AVCodec *codec = avcodec_find_decoder(in_stream->codecpar->codec_id);
-    //  AVStream *out_stream = avformat_new_stream(octx, codec);
-    //  if (!out_stream) {
-    //      printf("Failed allocating output stream\n");
-    //      ret = AVERROR_UNKNOWN;
-    //  }
-    //  AVCodecContext *pCodecCtx = avcodec_alloc_context3(codec);
-    //  ret = avcodec_parameters_to_context(pCodecCtx, in_stream->codecpar);
-    //  if (ret < 0) {
-    //      printf("Failed to copy context input to output stream codec context\n");
-    //  }
-    //  pCodecCtx->codec_tag = 0;
-    //  if (octx->oformat->flags & AVFMT_GLOBALHEADER) {
-    //      pCodecCtx->flags |= CODEC_FLAG_GLOBAL_HEADER;
-    //  }
-    //  ret = avcodec_parameters_from_context(out_stream->codecpar, pCodecCtx);
-    //  if (ret < 0) {
-    //      printf("Failed to copy context input to output stream codec context\n");
-    //  }
-    //}
-
-    for (i = 0; i < ictx->nb_streams; i++) {
-
-        //获取输入视频流
-        AVStream *in_stream = ictx->streams[i];
-        //为输出上下文添加音视频流（初始化一个音视频流容器）
-        AVStream *out_stream = avformat_new_stream(octx, in_stream->codec->codec);
-        if (!out_stream) {
-            printf("未能成功添加音视频流\n");
-            ret = AVERROR_UNKNOWN;
-        }
-
-        //将输入编解码器上下文信息 copy 给输出编解码器上下文
-        //ret = avcodec_copy_context(out_stream->codec, in_stream->codec);
-        ret = avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar);
-        //ret = avcodec_parameters_from_context(out_stream->codecpar, in_stream->codec);
-        //ret = avcodec_parameters_to_context(out_stream->codec, in_stream->codecpar);
-        if (ret < 0) {
-            printf("copy 编解码器上下文失败\n");
-        }
-        out_stream->codecpar->codec_tag = 0;
-
-        out_stream->codec->codec_tag = 0;
-        if (octx->oformat->flags & AVFMT_GLOBALHEADER) {
-            out_stream->codec->flags = out_stream->codec->flags | 0;
-        }
-    }
-
-    //输入流数据的数量循环
-    for (i = 0; i < ictx->nb_streams; i++) {
-        if (ictx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
-            videoindex = i;
-            break;
-        }
-    }
-
-    for (int i = 0; i < ictx->nb_streams; i++)
+AVFormatContext *inputContext = nullptr;
+AVFormatContext * outputContext = nullptr;
+int64_t lastReadPacketTime = 0;
+AVCodec *pdec =  new AVCodec;
+AVCodecContext *decodeContext;
+AVCodecContext *encodeContext;
+int audioIndex = -1;
+int videoIndex = -1;
+uint8_t * pSwpBuffer = nullptr;
+struct SwsContext* pSwsContext = nullptr;
+class SwsScaleContext
+{
+public:
+    SwsScaleContext()
     {
 
-        if (ictx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
-            audioindex = i;
-            break;
-        }
-
+    }
+    void SetSrcResolution(int width, int height)
+    {
+        srcWidth = width;
+        srcHeight = height;
     }
 
-    av_dump_format(octx, 0, outUrl, 1);
-
-    //
-    //                   准备推流
-    //
-
-    //打开IO
-    ret = avio_open(&octx->pb, outUrl, AVIO_FLAG_WRITE);
-    if (ret < 0) {
-        avError(ret);
+    void SetDstResolution(int width, int height)
+    {
+        dstWidth = width;
+        dstHeight = height;
     }
-
-    //写入头部信息
-    ret = avformat_write_header(octx, 0);
-    if (ret < 0) {
-        avError(ret);
+    void SetFormat(AVPixelFormat iformat, AVPixelFormat oformat)
+    {
+        this->iformat = iformat;
+        this->oformat = oformat;
     }
-    cout << "avformat_write_header Success!" << endl;
-    //推流每一帧数据
-    //int64_t pts  [ pts*(num/den)  第几秒显示]
-    //int64_t dts  解码时间 [P帧(相对于上一帧的变化) I帧(关键帧，完整的数据) B帧(上一帧和下一帧的变化)]  有了B帧压缩率更高。
-    //uint8_t *data
-    //int size
-    //int stream_index
-    //int flag
-    AVPacket pkt;
-    //获取当前的时间戳  微妙
-    long long start_time = av_gettime();
-    long long frame_index = 0;
-    const AVBitStreamFilter *filter = av_bsf_get_by_name("aac_adtstoasc");
-    while (1) {
-        //输入输出视频流
-        AVStream *in_stream, *out_stream;
-        //获取解码前数据//读包
+public:
+    int srcWidth;
+    int srcHeight;
+    int dstWidth;
+    int dstHeight;
+    AVPixelFormat iformat;
+    AVPixelFormat oformat;
+};
 
-        ret = av_read_frame(ictx, &pkt);
-
-        if (ret < 0) {
-            cout << "获取解码前数据shibai!" << endl;
-            break;
-        }
-
-        /*
-        PTS（Presentation Time Stamp）显示播放时间
-        DTS（Decoding Time Stamp）解码时间
-        */
-        //没有显示时间（比如未解码的 H.264 ）
-        if (pkt.pts == AV_NOPTS_VALUE) {
-            cout << "获取解码前数据AV_NOPTS_VALUE!" << endl;
-            //AVRational time_base：时基。通过该值可以把PTS，DTS转化为真正的时间。
-            AVRational time_base1 = ictx->streams[videoindex]->time_base;
-
-            //计算两帧之间的时间
-            /*
-            r_frame_rate 基流帧速率  （不是太懂）
-            av_q2d 转化为double类型
-            */
-            int64_t calc_duration = (double)AV_TIME_BASE / av_q2d(ictx->streams[videoindex]->r_frame_rate);
-
-            //配置参数
-            pkt.pts = (double)(frame_index*calc_duration) / (double)(av_q2d(time_base1)*AV_TIME_BASE);
-            pkt.dts = pkt.pts;
-            pkt.duration = (double)calc_duration / (double)(av_q2d(time_base1)*AV_TIME_BASE);
-        }
-
-        //延时
-        if (pkt.stream_index == videoindex) {
-            cout << "延时!" << endl;
-            AVRational time_base = ictx->streams[videoindex]->time_base;
-            AVRational time_base_q = {1,AV_TIME_BASE};
-            //计算视频播放时间//微妙
-            int64_t pts_time = av_rescale_q(pkt.dts, time_base, time_base_q);
-            //计算实际视频的播放时间
-            int64_t now_time = av_gettime() - start_time;
-
-            AVRational avr = ictx->streams[videoindex]->time_base;
-            cout << avr.num << "den= " << avr.den << " dts= " << pkt.dts << " pts= " << pkt.pts << " pts_time  " << pts_time << endl;
-            cout << "dts=" << pkt.dts << "now_time=" << now_time << "pts_time=" << pts_time << endl;
-
-            if (pts_time > now_time) {
-                cout << "睡眠一段时间="<< (pts_time - now_time) << endl;
-                //睡眠一段时间（目的是让当前视频记录的播放时间与实际时间同步）
-                av_usleep((unsigned int)(pts_time - now_time));
-            }
-
-
-        }
-        cout << "dd====" << endl;
-
-        in_stream = ictx->streams[pkt.stream_index];
-        out_stream = octx->streams[pkt.stream_index];
-
-        //计算延时后，重新指定时间戳
-        pkt.pts = av_rescale_q_rnd(pkt.pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
-        pkt.dts = av_rescale_q_rnd(pkt.dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
-        pkt.duration = (int)av_rescale_q(pkt.duration, in_stream->time_base, out_stream->time_base);
-        //字节流的位置，-1 表示不知道字节流位置
-        pkt.pos = -1;
-        if (pkt.stream_index == videoindex ) {
-            printf("Send %8d video frames to output URL\n", frame_index);
-            frame_index++;
-        }
-
-        //向输出上下文发送（向地址推送）//发送包文件
-        //处理hls中包含adts heard 的问题 acc_adtstoasc
-        if (pkt.stream_index == 4) {
-            AVBSFContext *bsf_ctx;
-            if (!filter)
-            {
-                av_log(NULL, AV_LOG_ERROR, "Unkonw bitstream filter");
-            }
-            //2.过滤器分配内存
-            int ret = av_bsf_alloc(filter, &bsf_ctx);
-
-            //把pkt数据推送到filter中去
-            ret = av_bsf_send_packet(bsf_ctx, &pkt);
-            if (ret < 0) {
-                printf("chulishibai\n");
-            }
-            //获取处理后的数据，用同一个pkt
-            ret = av_bsf_receive_packet(bsf_ctx, &pkt);
-            if (ret < 0) {
-                printf("chulishibai\n");
-            }
-            av_bsf_free(&bsf_ctx);
-        }
-
-        ret = av_interleaved_write_frame(octx, &pkt);
-
-
-        if (ret < 0) {
-            printf("发送数据包出错\n");
-            break;
-        }
-
-        //释放
-        av_free_packet(&pkt);
+static int interrupt_cb(void *ctx)
+{
+    int  timeout  = 10;
+    if(av_gettime() - lastReadPacketTime > timeout *1000 *1000)
+    {
+        return -1;
     }
-
     return 0;
 }
 
+int initSwsContext(struct SwsContext** pSwsContext, SwsScaleContext *swsScaleContext)
+{
+    *pSwsContext = sws_getContext(swsScaleContext->srcWidth, swsScaleContext->srcHeight, swsScaleContext->iformat,
+                                  swsScaleContext->dstWidth, swsScaleContext->dstHeight, swsScaleContext->oformat,
+                                  SWS_BICUBIC,
+                                  NULL, NULL, NULL);
+    if (*pSwsContext == NULL)
+    {
+        return -1;
+    }
+    return 0;
+}
 
+int initSwsFrame(AVFrame *pSwsFrame, int iWidth, int iHeight)
+{
+    int numBytes = av_image_get_buffer_size(encodeContext->pix_fmt, iWidth, iHeight, 1);
+    /*if(pSwpBuffer)
+    {
+        av_free(pSwpBuffer);
+    }*/
+    pSwpBuffer = (uint8_t *)av_malloc(numBytes * sizeof(uint8_t));
+    av_image_fill_arrays(pSwsFrame->data, pSwsFrame->linesize, pSwpBuffer, encodeContext->pix_fmt, iWidth, iHeight, 1);
+    pSwsFrame->width = iWidth;
+    pSwsFrame->height = iHeight;
+    pSwsFrame->format = encodeContext->pix_fmt;
+    return 1;
+}
+
+int OpenInput(string inputUrl)
+{
+
+    inputContext = avformat_alloc_context();
+    AVDictionary* options = nullptr;
+    inputContext->interrupt_callback.callback = interrupt_cb;
+     AVInputFormat *ifmt = av_find_input_format("video4linux2"); //video4linux2
+    av_dict_set_int(&options, "rtbufsize", 18432000 , 0);
+    lastReadPacketTime = av_gettime();
+    int ret = avformat_open_input(&inputContext, inputUrl.c_str(), ifmt,&options);
+    if(ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "Input file open input failed\n");
+        return  ret;
+    }
+    ret = avformat_find_stream_info(inputContext,nullptr);
+    if(ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "Find input file stream inform failed\n");
+    }
+    else
+    {
+        av_log(NULL, AV_LOG_ERROR, "Open input file  %s success\n",inputUrl.c_str());
+    }
+
+    for (int i = 0; i < inputContext->nb_streams; i++)
+    {
+        if (inputContext->streams[i]->codecpar->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO)
+        {
+            videoIndex = i;
+        }
+        else if (inputContext->streams[i]->codecpar->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO)
+        {
+            audioIndex = i;
+        }
+    }
+
+    return ret;
+}
+
+
+AVPacket* ReadPacketFromSource()
+{
+    AVPacket *packet = new AVPacket;
+    av_init_packet(packet);
+    lastReadPacketTime = av_gettime();
+    int ret = av_read_frame(inputContext, packet);
+    if(ret >= 0)
+    {
+        return packet;
+    }
+    else
+    {
+        av_packet_unref(packet);
+        delete packet;
+        packet = nullptr;
+        return nullptr;
+    }
+}
+
+int initVideoDecodeCodec()
+{
+    int ret = av_find_best_stream(inputContext, AVMEDIA_TYPE_VIDEO, -1, -1, &pdec, 0);
+
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "Find inform failed\n");
+        return ret;
+    }
+    decodeContext = avcodec_alloc_context3(pdec);
+    avcodec_parameters_to_context(decodeContext, inputContext->streams[videoIndex]->codecpar);
+    ret = avcodec_open2(decodeContext, pdec, NULL);
+    return ret;
+}
+
+int initVideoEncodeCodec()
+{
+      AVCodec *  picCodec;
+    auto inputStream = inputContext->streams[videoIndex];
+
+    picCodec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    encodeContext = avcodec_alloc_context3(picCodec);
+
+    encodeContext->codec_id = picCodec->id;
+    encodeContext->time_base.num = inputStream->time_base.num;
+    encodeContext->time_base.den = inputStream->time_base.den;
+    //encodeContext->pix_fmt=decodeContext->pix_fmt;
+   encodeContext->pix_fmt =  *picCodec->pix_fmts;
+
+    encodeContext->width = inputStream->codecpar->width;
+    encodeContext->height =inputStream->codecpar->height;
+    encodeContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    int ret = avcodec_open2(encodeContext, picCodec, nullptr);
+    if (ret < 0)
+    {
+        std::cout<<"open video codec failed"<<endl;
+        return  ret;
+    }
+    return 1;
+}
+
+int WritePacket(AVPacket *packet)
+{
+    auto inputStream = inputContext->streams[packet->stream_index];
+    auto outputStream = outputContext->streams[packet->stream_index];
+    av_packet_rescale_ts(packet,inputStream->time_base,outputStream->time_base);
+    return av_write_frame(outputContext, packet);
+}
+
+
+int OpenOutput(string outUrl)
+{
+    int ret  = avformat_alloc_output_context2(&outputContext, nullptr, "flv", outUrl.c_str());
+    if(ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "open output context failed\n");
+        goto Error;
+    }
+
+    ret = avio_open2(&outputContext->pb, outUrl.c_str(), AVIO_FLAG_WRITE,nullptr, nullptr);
+    if(ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "open avio failed");
+        goto Error;
+    }
+
+    for (int i = 0; i < inputContext->nb_streams; i++)
+    {
+
+        if (inputContext->streams[i]->codecpar->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO)
+        {
+            AVStream * stream = avformat_new_stream(outputContext, nullptr);
+            stream->codecpar->codec_tag = 0;
+            avcodec_parameters_from_context(stream->codecpar, encodeContext);
+        }
+        else continue;
+
+        if (ret < 0)
+        {
+            av_log(NULL, AV_LOG_FATAL, "copy codecpar context failed");
+            goto Error;
+        }
+    }
+
+    ret = avformat_write_header(outputContext, nullptr);
+    if(ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "format write header failed");
+        goto Error;
+    }
+
+    av_log(NULL, AV_LOG_FATAL, " Open output file success %s\n",outUrl.c_str());
+    return ret ;
+    Error:
+    if (outputContext != nullptr)
+    {
+        if (!(outputContext->oformat->flags & AVFMT_NOFILE))
+        {
+            avio_closep(&outputContext->pb);
+        }
+        avformat_free_context(outputContext);
+        outputContext = nullptr;
+    }
+    return ret ;
+}
+
+bool DecodeVideo(AVPacket* packet,AVFrame *frame)
+{
+    int ret = avcodec_send_packet(decodeContext, packet);
+    if (ret < 0) return false;
+
+    av_packet_unref(packet);
+    delete packet;
+    packet = nullptr;
+    ret = avcodec_receive_frame(decodeContext, frame);
+    return ret >= 0 ? true :false;
+}
+
+AVPacket * EncodeVideo(AVFrame* frame)
+{
+    int ret = 0;
+
+    ret = avcodec_send_frame(encodeContext, frame);
+    if (ret < 0) nullptr;
+
+    AVPacket * packet = new AVPacket;
+    av_init_packet(packet);
+    ret = avcodec_receive_packet(encodeContext, packet);
+    if (ret >= 0) return packet;
+    av_packet_unref(packet);
+    delete packet;
+    packet = nullptr;
+    return nullptr;
+}
+
+void CloseInput()
+{
+    if(inputContext != nullptr)
+    {
+        avformat_close_input(&inputContext);
+    }
+    if(pSwsContext)
+    {
+        sws_freeContext(pSwsContext);
+    }
+}
+
+void CloseOutput()
+{
+    if(outputContext != nullptr)
+    {
+        av_write_trailer(outputContext);
+        avformat_free_context(outputContext);
+    }
+}
+void Init()
+{
+    //av_register_all();
+    //avfilter_register_all();
+    avdevice_register_all();
+    avformat_network_init();
+    av_log_set_level(AV_LOG_WARNING);
+}
+int main()
+{
+    Init();
+    int64_t startTime = 0;
+    int printCount = 0;
+    SwsScaleContext swsScaleContext;
+    AVFrame *pSwsVideoFrame = av_frame_alloc();
+    AVFrame* frame = av_frame_alloc();
+    int ret = OpenInput("/dev/video1"); ///dev/video0 rtsp://admin:CGKJ12345@192.168.1.108:554/cam/realmonitor?channel=1&subtype=0
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "Open input file failed");
+        goto End;
+    }
+    ret = initVideoDecodeCodec();//
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "Init decode codec failed");
+        goto End;
+    }
+    ret = initVideoEncodeCodec();
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "Init encode codec failed");
+        goto End;
+    }
+
+    if(ret >= 0)
+    {
+        ret = OpenOutput("rtmp://test.bodyta.com:1935/live/livestream");///home/wgg_126/wgg/test3.flv
+    }
+    if(ret <0) goto End;
+
+    startTime = av_gettime();
+
+    swsScaleContext.SetSrcResolution(inputContext->streams[0]->codecpar->width, inputContext->streams[0]->codecpar->height);
+    swsScaleContext.SetDstResolution(encodeContext->width,encodeContext->height);
+
+    swsScaleContext.SetFormat(inputContext->streams[0]->codec->pix_fmt, encodeContext->pix_fmt);
+    initSwsContext(&pSwsContext, &swsScaleContext);
+    initSwsFrame(pSwsVideoFrame,encodeContext->width, encodeContext->height);
+
+    while(true)
+    {
+        auto packet = ReadPacketFromSource();
+        if(packet)
+        {
+            if (packet->stream_index == videoIndex)
+            {
+                bool ret = DecodeVideo(packet,frame);
+                if (ret)
+                {
+                    sws_scale(pSwsContext, (const uint8_t *const *)frame->data,
+                              frame->linesize, 0, inputContext->streams[0]->codecpar->height, (uint8_t *const *)pSwsVideoFrame->data, pSwsVideoFrame->linesize);
+
+                    pSwsVideoFrame->pts = frame->pts;
+                    AVPacket * packetEncode = EncodeVideo(pSwsVideoFrame);
+                    if (packetEncode)
+                    {
+                        ret = WritePacket(packetEncode);
+                        if(printCount++ == 0)
+                        {
+                            cout <<"write packet:"<< ret <<endl;
+                        }
+
+                    }
+                }
+            }
+        }
+    }
+    av_frame_unref(pSwsVideoFrame);
+    delete pSwsVideoFrame;
+    cout <<"write packet end"<< ret <<endl;
+    End:
+    if(outputContext)
+    {
+        av_write_trailer(outputContext);
+        avformat_free_context(outputContext);
+    }
+    while(true)
+    {
+        this_thread::sleep_for(chrono::seconds(100));
+    }
+    return 0;
+}

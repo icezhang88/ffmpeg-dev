@@ -2,6 +2,27 @@
 <project version="4">
   <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
+      <paths name="240 (6395b462-f062-41a4-99ce-009eeaac9377)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/tmp.GpaZfJGE52" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="240 (64ba0f0f-90c4-4e2f-aa20-6f1aae76338f)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/tmp.JJNv86shDq" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
       <paths name="Remote Host (094ea343-5c0b-4d45-9792-d1cc7bd86372)">
         <serverdata>
           <mappings>
@@ -59,6 +80,13 @@
         </serverdata>
       </paths>
       <paths name="Remote Host (2) (efa6c4c7-d778-4098-b632-3d7fbcee6084)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="Remote Host (2) (fe8e3a95-4461-4d13-a5ec-8e4d71037a8d)">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
@@ -157,6 +185,13 @@
         </serverdata>
       </paths>
       <paths name="WSL (c3029071-b421-4bcb-b822-8018c1e22beb)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="WSL (e4569f9b-cc0d-440e-aec4-bc8e6af8e7b0)">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
