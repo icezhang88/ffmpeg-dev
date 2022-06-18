@@ -114,8 +114,6 @@ int OpenInput(string inputUrl) {
     inputContext->interrupt_callback.callback = interrupt_cb;
     AVInputFormat *ifmt = av_find_input_format("avfoundation"); //video4linux2
     av_dict_set_int(&options, "rtbufsize", 18432000, 0);
-    av_dict_set_int(&options, "framerate", 30, 0);
-    //av_dict_set_int(&options, "video_size", "640x480", 0);
     lastReadPacketTime = av_gettime();
     int ret = avformat_open_input(&inputContext, inputUrl.c_str(), ifmt, &options);
     if (ret < 0) {
