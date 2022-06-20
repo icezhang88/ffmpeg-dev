@@ -328,7 +328,7 @@ int main() {
     AVFrame *pSwsVideoFrame = av_frame_alloc();
     AVFrame *frame = av_frame_alloc();
     int ret = OpenInput(
-            "FaceTime HD Camera"); ///dev/video0 rtsp://admin:CGKJ12345@192.168.1.108:554/cam/realmonitor?channel=1&subtype=0
+            "/dev/video0"); ///dev/video0 rtsp://admin:CGKJ12345@192.168.1.108:554/cam/realmonitor?channel=1&subtype=0
     if (ret < 0) {
         av_log(NULL, AV_LOG_ERROR, "Open input file failed");
         goto End;
@@ -345,7 +345,7 @@ int main() {
     }
 
     if (ret >= 0) {
-        ret = OpenOutput("rtmp://192.168.31.240:1935/bodyta/live");///home/wgg_126/wgg/test3.flv
+        ret = OpenOutput("rtmp://k2.bodyta.com:1935/live/livestream");///home/wgg_126/wgg/test3.flv
     }
     if (ret < 0) goto End;
 
