@@ -110,28 +110,23 @@ int initSwsFrame(AVFrame *pSwsFrame, int iWidth, int iHeight) {
 int OpenInput(string inputUrl) {
 
     inputContext = avformat_alloc_context();
-
     AVDictionary *options = nullptr;
     inputContext->interrupt_callback.callback = interrupt_cb;
     AVInputFormat *ifmt = av_find_input_format("video4linux2"); //video4linux2
-    av_dict_set_int(&options, "rtbufsize", 100, 0);
-    av_dict_set(&options, "rtsp_transport", "udp", 0);
-    av_dict_set(&options, "stimeout", "200000", 0);
-    av_dict_set(&options, "fflags", "nobuffer", 0);
-
+    av_dict_set_int(&options, "rtbufsize", 18432000, 0);
+    av_dict_set(&optionsDict, "fflags", "nobuffer", 0);
     lastReadPacketTime = av_gettime();
     int ret = avformat_open_input(&inputContext, inputUrl.c_str(), ifmt, &options);
     if (ret < 0) {
         av_log(NULL, AV_LOG_ERROR, "Input file open input failed\n");
         return ret;
     }
-    //增加延迟
-//    ret = avformat_find_stream_info(inputContext, nullptr);
-//    if (ret < 0) {
-//        av_log(NULL, AV_LOG_ERROR, "Find input file stream inform failed\n");
-//    } else {
-//        av_log(NULL, AV_LOG_ERROR, "Open input file  %s success\n", inputUrl.c_str());
-//    }
+    ret = avformat_find_stream_info(inputContext, nullptr);
+    if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Find input file stream inform failed\n");
+    } else {
+        av_log(NULL, AV_LOG_ERROR, "Open input file  %s success\n", inputUrl.c_str());
+    }
 
     for (int i = 0; i < inputContext->nb_streams; i++) {
         if (inputContext->streams[i]->codecpar->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO) {
@@ -178,11 +173,7 @@ int initVideoEncodeCodec() {
     AVDictionary *params = NULL;
     av_dict_set(&params, "preset", "superfast", 0);
     av_dict_set(&params, "tune", "zerolatency", 0);
-    av_dict_set(&params, "profile", "baseline", 0);
-    av_dict_set(&params, "cbr", "2000", 0);
-//    av_dict_set(&params, "threads", "auto", 0);
 
-//
     AVCodec *picCodec;
     auto inputStream = inputContext->streams[videoIndex];
 
@@ -198,7 +189,6 @@ int initVideoEncodeCodec() {
     encodeContext->width = inputStream->codecpar->width;
     encodeContext->height = inputStream->codecpar->height;
     encodeContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-
     int ret = avcodec_open2(encodeContext, picCodec, &params);
     if (ret < 0) {
         std::cout << "open video codec failed" << endl;
@@ -275,7 +265,6 @@ bool DecodeVideo(AVPacket *packet, AVFrame *frame) {
 AVPacket *EncodeVideo(AVFrame *frame) {
     int ret = 0;
 
-
     ret = avcodec_send_frame(encodeContext, frame);
     if (ret < 0) nullptr;
 
@@ -338,7 +327,7 @@ int main() {
     }
 
     if (ret >= 0) {
-        ret = OpenOutput("rtmp://192.168.31.240:1935/bodyta/live");///home/wgg_126/wgg/test3.flv
+        ret = OpenOutput("rtmp://video.bodyta.com/bodyta/bodyta?auth_key=1655366333-0-0-8f888030331ce8876ee4923120181b70");///home/wgg_126/wgg/test3.flv
     }
     if (ret < 0) goto End;
 
