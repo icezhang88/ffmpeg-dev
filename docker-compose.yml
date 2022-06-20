@@ -1,0 +1,24 @@
+version: '3'
+services:
+  srs:
+    image: registry.cn-hangzhou.aliyuncs.com/ossrs/srs:4
+    restart: always
+    network_mode: "bridge"
+    volumes:
+      - /etc/hosts:/etc/hosts
+      - ./conf:/usr/local/srs/conf
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "1935:1935"
+      - "1985:1985"
+      - "8080:8080"
+      - "10800:10800"
+      - "8000:8000/udp"
+
+    logging:
+      driver: 'json-file'
+      options:
+        labels: "service"
+        max-size: '500m'
+        max-file: '10'
