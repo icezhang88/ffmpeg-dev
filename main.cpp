@@ -189,7 +189,6 @@ int initVideoEncodeCodec() {
     av_dict_set(&params, "cbr", "2000", 0);
 //    av_dict_set(&params, "threads", "auto", 0);
 
-//
     AVCodec *picCodec;
     auto inputStream = inputContext->streams[videoIndex];
 
@@ -381,6 +380,10 @@ int main() {
                 }
             }
         }
+        av_frame_unref(frame);
+
+
+//        free(frame);
     }
     av_frame_unref(pSwsVideoFrame);
     delete pSwsVideoFrame;
