@@ -380,10 +380,6 @@ int main() {
                 }
             }
         }
-        av_frame_unref(frame);
-
-
-//        free(frame);
     }
     av_frame_unref(pSwsVideoFrame);
     delete pSwsVideoFrame;
